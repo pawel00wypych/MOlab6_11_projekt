@@ -60,9 +60,9 @@ void clear(matrix analytical, matrix computational, vector max_error, matrix err
 
 //=========================================================main===========================================================//
 int main() {
-    KMB();
+    //KMB();
     Laasonen_Thomas();
-    Laasonen_SOR();
+    //Laasonen_SOR();
     return 0;
 }
 
@@ -100,6 +100,7 @@ vector get_max_error(matrix errors, const int r, const int c)
         }
         _max_error[k] = current_max;
     }
+    cout<< " tmax error : "<<  _max_error[r-1]<<endl;
     return _max_error;
 }
 
@@ -196,6 +197,17 @@ void vector_to_file(vector _vector, const int c, const char* file_name)
     file.close();
 }
 
+void vector_to_file(vector _vector, vector _vector2, const int c, const char* file_name)
+{
+    fstream file(file_name, ios::out);
+
+    for(int i = 0; i < c; i++)
+    {
+        file << log10(_vector[i]) << " "<< log10(_vector2[i]) << endl;
+    }
+    file.close();
+}
+
 //get steps
 vector get_x_steps(const int c)
 {
@@ -245,31 +257,54 @@ void clear(matrix analytical, matrix computational, vector max_error, matrix err
 //======================================================KMB method========================================================//
 void KMB()
 {
-    const double delta_t = provide_delta_t(D,h,KMB_lambda);
-    const int r = ((t_max - t_min) / delta_t) + 2;
-    const int c = ((x_end - x_start) / h);
+    //zad 1
+    int steps = 150;
+    vector max_t_error = new double[steps];
+    vector x_steps = new double[steps];
+    double h = 0.225;
+    for(int i=0;i<steps;i++){
+        max_t_error[i] = 0.0;
+    }
+    double x = h;
+    double r,delta_t ;
+    matrix _analytical;
+    matrix _kmb;
+    matrix errors_matrix;
+    vector max_error;
 
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _kmb = provide_KMB_solution(r, c);
+    for(int j=0;j<steps;j++) {
+        x_steps[j] = x;
+        const double delta_t = provide_delta_t(D, x, KMB_lambda);
+        const int r = ((t_max - t_min) / delta_t);
+        const int c = ((x_end - x_start) / x);
 
-    matrix errors_matrix = get_errors_matrix(r ,c ,_analytical ,_kmb);
-    vector max_error = get_max_error(errors_matrix, r, c);
+        matrix _analytical = provide_analytical_solution(x, delta_t, r, c);
+        matrix _kmb = provide_KMB_solution(r, c);
+
+        matrix errors_matrix = get_errors_matrix(r, c, _analytical, _kmb);
+        vector max_error = get_max_error(errors_matrix, r, c);
+
+        max_t_error[j] = max_error[r-1];
+
+        x /= 1.009;
+    }
 
     vector t_steps = get_t_steps(delta_t, r);
-    vector x_steps = get_x_steps(c);
+ //   vector x_steps = get_x_steps(c);
 
 
 
-    matrix_to_file(_analytical, r, c, "kmb_analytical.txt");
-    matrix_to_file(_kmb, r, c, "kmb_computational.txt");
-    matrix_to_file(errors_matrix, r, c, "kmb_errors_matrix.txt");
+  //  matrix_to_file(_analytical, r, c, "kmb_analytical.txt");
+ //   matrix_to_file(_kmb, r, c, "kmb_computational.txt");
+ //   matrix_to_file(errors_matrix, r, c, "kmb_errors_matrix.txt");
 
-    vector_to_file(max_error, r, "kmb_max_error.txt");
-    vector_to_file(t_steps, r, "kmb_t_steps.txt");
-    vector_to_file(x_steps, r, "kmb_x_steps.txt");
+    vector_to_file(x_steps,max_t_error, steps, "zad1_KMB_tmax_error.txt");
+    //vector_to_file(t_steps,max_error, r, "kmb_t_steps.txt");
+    //vector_to_file(x_steps, r, "kmb_x_steps.txt");
 
+   // delete [] max_t_error;
+   // clear(_analytical, _kmb, max_error, errors_matrix, x_steps, t_steps, r);
 
-    clear(_analytical, _kmb, max_error, errors_matrix, x_steps, t_steps, r);
 }
 
 matrix provide_KMB_solution(const int r, const int c)
@@ -292,30 +327,59 @@ matrix provide_KMB_solution(const int r, const int c)
 //============================================================Laasonen_Thomas method======================================//
 void Laasonen_Thomas()
 {
-    const double delta_t = provide_delta_t(D,h,LAASONEN_lambda);
-    const int r = ((t_max - t_min) / delta_t) + 2;
-    const int c = ((x_end - x_start) / h);
-
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _laasonen_thomas = provide_Laasonen_Thomas(r, c);
-
-    matrix errors_matrix = get_errors_matrix(r ,c ,_analytical ,_laasonen_thomas);
-    vector max_error = get_max_error(errors_matrix, r, c);
-
-    vector t_steps = get_t_steps(delta_t, r);
-    vector x_steps = get_x_steps(c);
+    //zad 1
+    int steps = 150;
+    vector max_t_error = new double[steps];
+    vector x_steps = new double[steps];
+    double h = 0.225;
+    for(int i=0;i<steps;i++){
+        max_t_error[i] = 0.0;
+    }
+    double x = h;
 
 
-    matrix_to_file(_analytical, r, c, "LTh_analytical.txt");
-    matrix_to_file(_laasonen_thomas, r, c, "LTh_computational.txt");
-    matrix_to_file(errors_matrix, r, c, "LTh_errors_matrix.txt");
+    for(int j=0;j<steps;j++) {
+        x_steps[j] = x;
+        const double delta_t = provide_delta_t(D, x, LAASONEN_lambda);
+        const int r = ((t_max - t_min) / delta_t);
+        const int c = ((x_end - x_start) / x);
 
-    vector_to_file(max_error, r, "LTh_max_error.txt");
-    vector_to_file(t_steps, r, "LTh_t_steps.txt");
-    vector_to_file(x_steps, r, "LTh_x_steps.txt");
+        matrix _analytical = provide_analytical_solution(x, delta_t, r, c);
+        matrix _laasonen_thomas = provide_Laasonen_Thomas(r, c);
+
+        matrix errors_matrix = get_errors_matrix(r, c, _analytical, _laasonen_thomas);
+        vector max_error = get_max_error(errors_matrix, r, c);
+
+        max_t_error[j] = max_error[r-1];
+
+        x /= 1.009;
+    }
+
+  //  const double delta_t = provide_delta_t(D,h,LAASONEN_lambda);
+//    const int r = ((t_max - t_min) / delta_t) + 2;
+ //   const int c = ((x_end - x_start) / h);
+
+ //   matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
+ //   matrix _laasonen_thomas = provide_Laasonen_Thomas(r, c);
+
+  //  matrix errors_matrix = get_errors_matrix(r ,c ,_analytical ,_laasonen_thomas);
+   // vector max_error = get_max_error(errors_matrix, r, c);
+
+   // vector t_steps = get_t_steps(delta_t, r);
+ //   vector x_steps = get_x_steps(c);
+    vector_to_file(x_steps,max_t_error, steps, "zad1_LTH_tmax_error.txt");
 
 
-    clear(_analytical, _laasonen_thomas, max_error, errors_matrix, x_steps, t_steps, r);
+  //  matrix_to_file(_analytical, r, c, "LTh_analytical.txt");
+  //  matrix_to_file(_laasonen_thomas, r, c, "LTh_computational.txt");
+  //  matrix_to_file(errors_matrix, r, c, "LTh_errors_matrix.txt");
+
+ //   vector_to_file(max_error, r, "LTh_max_error.txt");
+ //   vector_to_file(t_steps, r, "LTh_t_steps.txt");
+ //   vector_to_file(x_steps, r, "LTh_x_steps.txt");
+
+
+    //clear(_analytical, _laasonen_thomas, max_error, errors_matrix, x_steps, t_steps, r);
 };
 
 matrix provide_Laasonen_Thomas(const int r, const int c)
