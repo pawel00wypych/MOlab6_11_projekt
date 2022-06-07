@@ -29,8 +29,8 @@ matrix provide_KMB_solution(const int r, const int c);
 void Laasonen_SOR();
 matrix provide_Laasonen_SOR(const int r,const int c);
 void SOR(matrix matrixA, vector b, vector x, const int r, int const c);
-bool residuum(double **matrix, double *b, double *x, const int r, const int c);
-bool estym(double *x, double *x1, const int c);
+vector residuum(double **macierz, double *b, double *x, int m);
+double estymator(double *xNowe, double *xPoprzednie, int m);
 
 void Laasonen_Thomas();
 matrix provide_Laasonen_Thomas(const int r, const int c);
@@ -109,7 +109,7 @@ double norm_max(vector row, int c)
     for (int i = 1; i < c; i++)
     {
         if (current_max < fabs(row[i])) {
-            current_max = row[i];
+            current_max = fabs(row[i]);
         }
     }
     return current_max;
@@ -601,11 +601,11 @@ void Laasonen_SOR()
 
 
     //zad 1
-    int steps = 150;
+    int steps = 130;
     int r1 = 0;
     vector max_t_error = new double[steps];
     vector x_steps_1 = new double[steps];
-    double h1 = 0.225;
+    double h1 = 0.35;
 
     for(int i=0;i<steps;i++){
         max_t_error[i] = 0.0;
@@ -619,7 +619,7 @@ void Laasonen_SOR()
         delta_t = provide_delta_t(D, x, LAASONEN_lambda);
         r1 = ((t_max - t_min) / delta_t);
         c = r1;//((x_end - x_start) / x);
-
+        cout<<"j "<<j<<endl;
         _analytical = provide_analytical_solution(x, delta_t, r1, c);
         _laasonen_sor = provide_Laasonen_SOR(r1, c);
 
@@ -630,7 +630,7 @@ void Laasonen_SOR()
 
         x /= 1.009;
     }
-    vector_to_file(x_steps_1,max_t_error, steps, "lsor_zad1_tmax_error.txt", true);
+    vector_to_file(x_steps_1,max_t_error, steps, "lsor_zad1_tmax_error.txt", false);
 
 
 
@@ -642,7 +642,7 @@ void Laasonen_SOR()
         delete[] errors_matrix_1[i];
     }
 
-    clear(_analytical, _laasonen_sor, max_error, errors_matrix, x_steps, t_steps, r);
+    clear(_analytical, _laasonen_sor, max_error, errors_matrix, x_steps, t_steps, r1);
 
 }
 
@@ -655,6 +655,11 @@ matrix provide_Laasonen_SOR(const int r,const int c)
 
     vector vector_b = new double[c];
     vector vector_x = new double[c];
+    matrix matrix_temp = new vector[c];
+    for (int i = 0; i < c; i++) {
+        matrix_temp[i] = new double[c];
+    }
+
     for(int i = 0; i < c; i++)
     {
         vector_b[i] = 0.0;
@@ -663,28 +668,23 @@ matrix provide_Laasonen_SOR(const int r,const int c)
 
     for (int k = 1; k < r; k++) {
 
-        _matrix_A[1][0] = 0.0;//Lower[0]  = 0.0;
-        _matrix_A[0][0] = 1.0;//Diagonal[0] = 1.0;
-        _matrix_A[0][1] = 0.0;//Upper[0] = 0.0;
+        matrix_temp[0][0] = 1.0;//Diagonal[0] = 1.0;
         vector_b[0] = _matrix_A[k-1][0];
 
         for (int i = 1; i < c - 1; i++) {
-            _matrix_A[i+1][i] = LAASONEN_lambda;// Lower[i]    = LAASONEN_lambda;
-            _matrix_A[i][i] = -_lambda;//Diagonal[i] = -_lambda;
-            _matrix_A[i-1][i] = LAASONEN_lambda;//Upper[i]    = LAASONEN_lambda;
+            matrix_temp[i+1][i] = LAASONEN_lambda;// Lower[i]    = LAASONEN_lambda;
+            matrix_temp[i][i] = -_lambda;//Diagonal[i] = -_lambda;
+            matrix_temp[i-1][i] = LAASONEN_lambda;//Upper[i]    = LAASONEN_lambda;
             vector_b[i] = -_matrix_A[k - 1][i];
         }
 
-        _matrix_A[1][c-1] = 0.0;//Lower[c-1] = 0.0
-        _matrix_A[r-1][c-1] = 1.0;//Diagonal[c - 1] = 1.0;
-        _matrix_A[r-2][c-1] = 0.0;//Upper[c - 1] = 0.0;
-
-        vector_b[c - 1] = _matrix_A[k - 1][c - 1];
+        matrix_temp[r-1][c-1] = 1.0;//Diagonal[c - 1] = 1.0;
+        vector_b[c - 1] = 0.0;
 
 
-        SOR( _matrix_A, vector_b, vector_x, r, c);
+        SOR( matrix_temp, vector_b, vector_x, r, c);
 
-        for (int i = 1; i < c; i++) {
+        for (int i = 1; i < c-1; i++) {
             _matrix_A[k][i] = vector_x[i];
         }
     }
@@ -695,83 +695,68 @@ matrix provide_Laasonen_SOR(const int r,const int c)
 void SOR(matrix  matrix_A, vector b, vector x, const int r, int const c)
 {
 
+    double TOL = 1e-16;
+    double *xnplus1 = new double[c];
 
-
-        double TOL = 1e-15;
-        double *xnplus1 = new double[c];
     for( int i = 0; i < c; i++)
    {
        xnplus1[i] = 0.0;
-    }
-        double suma;
-        double OMEGA = 0.5;
-        for (int liczba_iteracji = 0; liczba_iteracji < 80; liczba_iteracji++) {
-            for (int i = 0; i < c; i++) {
-                suma = 0.0;
-                for (int j = 0; j < c; j++) {
+   }
+
+    double suma;
+    double OMEGA = 0.5;
+
+    for (int iter = 0; iter < 40; iter++)
+    {
+        for (int i = 1; i < c; i++)
+        {
+            suma = 0.0;
+            for (int j = 1; j < c; j++)
+            {
                     if (i != j) {
                         suma += (matrix_A[i][j] * x[j]);
                     }
-                }
-                xnplus1[i] = x[i];
-                x[i] = (1.0 - OMEGA) * x[i] + (OMEGA * (b[i] - suma) / matrix_A[i][i]);
             }
-            if ((residuum(matrix_A, b, x, r, c) < TOL) && (estym(x, xnplus1, c) < TOL)) {
+            xnplus1[i]  = (1.0 - OMEGA) * x[i] + ((OMEGA * (b[i] - suma)) / matrix_A[i][i]);
+            x[i] = xnplus1[i];
+        }
+
+        if ((fabs((norm_max(residuum(matrix_A, b, x, c), c))) < TOL) &&
+            (fabs((estymator(xnplus1, x, c))) < TOL))
                 break;
-            }
-        }
-
-//    vector x_plus_1 = new double[c];
-//    for( int i = 0; i < c; i++)
-//    {
-//        x_plus_1[i] = 0.0;
-//    }
-//
-//    double sum = 0;
-//    for(int k=0; k<SOR_ITER; k++) {
-//        for (int i = 0; i < c; i++) {
-//            sum = 0;
-//            for(int j=0; j<c; j++)
-//            {
-//                if(i != j)
-//                {
-//                    sum = sum + matrix_A[i][j] * x[j];
-//                }
-//            }
-//               // x_plus_1[i]  = x[i];
-//            x_plus_1[i] = (1.0  - omega) * x[i] + (omega / matrix_A[i][i]) * (b[i] - sum);
-//            x[i] =  x_plus_1[i];
-//        }
-//
-//        bool est = estym(x, x_plus_1, c);
-//        bool res = residuum(matrix_A, b, x, r, c);
-//        if ( est && res )
-//            break;
-//       //swapVect(x_plus_1, x, c);
-//    }
+    }
 }
 
-bool estym(double *x, double *x1, const int c)
-{
-    int counter = 0;
+double estymator(vector xNowe, vector xPoprzednie, int m) {
+    double max = 0.0;
+    double *p = new double[m];
+
+    for (int i = 0; i < m; i++)
+        p[i] = xNowe[i] - xPoprzednie[i];
+
+    if (fabs(p[0]) > fabs(p[1]))
+        max = fabs(p[0]);
+    else
+        max = fabs(p[1]);
+
+    for (int i = 0; i < m; i++) {
+        if (fabs(p[i]) > max)
+            max = fabs(p[i]);
+    }
+
+    delete[] p;
+    return max;
+}
+
+vector residuum(matrix macierz, vector b, vector x, int c) {
+    double sum = 0.0;
+    double *wynik = new double[c];
     for (int i = 0; i < c; i++) {
-        if (fabs(x1[i] - x[i]) < 1e-16)
-            counter++;
-    }
-    return counter == c;
-}
-
-bool residuum(double **matrix, double *b, double *x, const int r, const int c)
-{
-    int counter = 0;
-    for (int i = 0; i < r; i++) {
-        double temp = 0;
         for (int j = 0; j < c; j++) {
-            temp += matrix[i][j] * x[j];
+            sum += macierz[i][j] * x[j];
         }
-
-        if (fabs(temp - b[i]) < 1e-16)
-            counter++;
+        wynik[i] = sum - b[i];
+        sum = 0.0;
     }
-    return counter == c;
+    return wynik;
 }
