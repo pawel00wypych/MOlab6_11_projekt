@@ -62,8 +62,8 @@ void clear(matrix analytical, matrix computational, vector max_error, matrix err
 
 int main()
 {
-   // KMB();
-   // Laasonen_Thomas();
+    KMB();
+    Laasonen_Thomas();
     Laasonen_SOR();
     return 0;
 }
