@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <fstream>
-
+#include <string>
 #include "lib/calerf.h"
 
 using namespace std;
@@ -19,52 +19,56 @@ const double a = 6.0 * sqrt(D * t_max);
 const double x_start = -a;
 const double x_end = a;
 const double h = 0.1;
-const double omega = 0.5; //Laasonen - SOR
 typedef double** matrix;
 typedef double* vector;
-const int SOR_ITER = 50;
 
 //====================================================================functions==========================================//
 void KMB();
-void Laasonen_Thomas();
-void Laasonen_SOR();
+matrix provide_KMB_solution(const int r, const int c);
 
+void Laasonen_SOR();
 matrix provide_Laasonen_SOR(const int r,const int c);
 void SOR(matrix matrixA, vector b, vector x, const int r, int const c);
-void swapVect(double *x1, double *x, const int c);
-bool residuum(double **matrix, double *b, double *x, const int r, const int c);
-bool estym(double *x, double *x1, const int c);
+vector residuum(double **macierz, double *b, double *x, int m);
+double estymator(double *xNowe, double *xPoprzednie, int m);
 
-
+void Laasonen_Thomas();
 matrix provide_Laasonen_Thomas(const int r, const int c);
 void Thomas(vector Lower, vector Diagonal, vector Upper, vector b, vector x, const int c);
 void compute_eta(vector Lower, vector Diagonal, vector Upper, vector l, const int c);
 void compute_r(vector b, vector l, const int c);
 void compute_x(vector Diagonal, vector Upper, vector b, vector x, const int c);
 
-matrix provide_KMB_solution(const int r, const int c);
 
 double provide_delta_t(const double D, const double h, const double lambda);
 matrix provide_analytical_solution(const double h, const double delta_t, const int r, const int c);
 matrix init_matrix_conditions(const int r, const int c);
 matrix get_errors_matrix(const int r, const int c,matrix analytical, matrix computational);
 vector get_max_error(matrix errors, const int r, const int c);
+double norm_max(vector row, int c);
 vector get_x_steps(const int c);
 vector get_t_steps(double delta_t, const int r);
 
-
-void matrix_to_file(matrix mtrx, const int r, const int c, const char* file_name);
-void vector_to_file(vector _vector, const int c, const char* file_name);
+void task2_save_data(matrix matrix_comp,matrix matrix_analytical, vector steps, const int c, const int row, string file_name, bool log_10);
+void matrix_to_file(matrix mtrx, const int r, const int c, string file_name);
+void vector_to_file(vector _vector, const int c, string file_name, bool log_10);
+void vector_to_file(vector _vector, vector _vector2, const int c, string file_name, bool log_10);
+void vector_to_file(vector _vector, vector _vector2, vector _vector3, const int c, string file_name, bool log_10);
 void clear(matrix analytical, matrix computational, vector max_error, matrix errors, vector x_steps, vector t_steps, const int r);
 
 
+
 //=========================================================main===========================================================//
-int main() {
+
+int main()
+{
     KMB();
     Laasonen_Thomas();
     Laasonen_SOR();
     return 0;
 }
+
+
 
 
 
@@ -90,17 +94,25 @@ matrix get_errors_matrix(const int r, const int c,matrix analytical, matrix comp
 vector get_max_error(matrix errors, const int r, const int c)
 {
     vector _max_error = new double[r];
-    double current_max;
     for(int k = 0; k < r; k++)
     {
-        current_max = fabs(errors[k][0]);
-        for(int i = 1; i < c; i++)
-        {
-            current_max = std::max(current_max, fabs(errors[k][i]));
-        }
-        _max_error[k] = current_max;
+        _max_error[k] = norm_max(errors[k],c);
     }
     return _max_error;
+}
+
+double norm_max(vector row, int c)
+{
+
+    double current_max = fabs(row[0]);
+
+    for (int i = 1; i < c; i++)
+    {
+        if (current_max < fabs(row[i])) {
+            current_max = fabs(row[i]);
+        }
+    }
+    return current_max;
 }
 
 
@@ -121,6 +133,7 @@ matrix provide_analytical_solution(const double h, const double delta_t, const i
 
     double t = t_min;
     double x = x_start;
+
     for(int k = 0; k < r; k++)
     {
         for(int i = 0; i < c; i++)
@@ -170,10 +183,12 @@ matrix init_matrix_conditions(const int r, const int c)
 }
 
 
-//printing to files
-void matrix_to_file(matrix _matrix, const int r, const int c, const char* file_name)
+
+//========================================================printing to files================================================//
+void matrix_to_file(matrix _matrix, const int r, const int c, string file_name)
 {
-    fstream file(file_name, ios::out);
+    fstream file(file_name.c_str(), ios::out);
+
     for(int k = 0; k < r; k++)
     {
         for(int i = 0; i < c; i++)
@@ -182,29 +197,77 @@ void matrix_to_file(matrix _matrix, const int r, const int c, const char* file_n
         }
         file << endl;
     }
+
     file.close();
 }
 
-void vector_to_file(vector _vector, const int c, const char* file_name)
+void vector_to_file(vector _vector, const int c, string file_name, bool log_10)
 {
-    fstream file(file_name, ios::out);
+    fstream file(file_name.c_str(), ios::out);
 
-    for(int i = 0; i < c; i++)
+    if(log_10) {
+        for (int i = 0; i < c; i++) {
+            file << _vector[i] << " " << endl;
+        }
+    }else
     {
-        file << _vector[i] << endl;
+        for (int i = 0; i < c; i++) {
+            file << _vector[i] << " " << endl;
+        }
     }
+
     file.close();
 }
+
+void vector_to_file(vector _vector, vector _vector2, const int c, string file_name, bool log_10)
+{
+    fstream file(file_name.c_str(), ios::out);
+
+    if(log_10) {
+        for (int i = 0; i < c; i++) {
+            file << _vector[i] << " " << _vector2[i] << endl;
+        }
+    }else
+    {
+        for (int i = 0; i < c; i++) {
+            file << _vector[i] << " " << _vector2[i] << endl;
+        }
+    }
+
+    file.close();
+}
+
+void vector_to_file(vector _vector, vector _vector2, vector _vector3, const int c, string file_name, bool log_10)
+{
+    fstream file(file_name.c_str(), ios::out);
+
+    if(log_10) {
+        for (int i = 0; i < c; i++) {
+            file << log10(_vector[i]) << " " << log10(_vector2[i]) << " " << log10(_vector3[i]) << endl;
+        }
+    }else
+    {
+        for (int i = 0; i < c; i++) {
+            file << _vector[i] << " " << _vector2[i] << " " <<_vector3[i] << endl;
+        }
+    }
+
+
+    file.close();
+}
+
+
 
 //get steps
 vector get_x_steps(const int c)
 {
     vector _x_steps = new double[c];
     double x = x_start;
+
     for(int i=0; i < c; i++)
     {
         _x_steps[i] = x;
-        x += h;
+        x += 0.1;
     }
     return _x_steps;
 }
@@ -220,6 +283,22 @@ vector get_t_steps(double delta_t, const int r)
         t += delta_t;
     }
     return _t_steps;
+}
+
+
+void task2_save_data(matrix matrix_comp ,matrix matrix_analytical , vector steps, const int c, const int row, string file_name, bool log_10) {
+    vector temp_comp = new double[c];
+    vector temp_analytical = new double[c];
+    cout<<"row "<<row<<endl;
+    for (int i = 0; i < c; i++)
+    {
+        temp_comp[i] = matrix_comp[row][i];
+        temp_analytical[i] = matrix_analytical[row][i];
+    }
+
+    vector_to_file(steps, temp_comp, temp_analytical, c, file_name, log_10);
+    delete [] temp_comp;
+    delete [] temp_analytical;
 }
 
 //clear memory
@@ -245,31 +324,76 @@ void clear(matrix analytical, matrix computational, vector max_error, matrix err
 //======================================================KMB method========================================================//
 void KMB()
 {
-    const double delta_t = provide_delta_t(D,h,KMB_lambda);
-    const int r = ((t_max - t_min) / delta_t) + 2;
-    const int c = ((x_end - x_start) / h);
+    //zad 2
 
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _kmb = provide_KMB_solution(r, c);
-
-    matrix errors_matrix = get_errors_matrix(r ,c ,_analytical ,_kmb);
-    vector max_error = get_max_error(errors_matrix, r, c);
-
+    double delta_t = provide_delta_t(D, h, KMB_lambda);
+    int r = ((t_max - t_min) / delta_t);
+    int c = ((x_end - x_start) / h);
     vector t_steps = get_t_steps(delta_t, r);
     vector x_steps = get_x_steps(c);
 
+    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
+    matrix _kmb = provide_KMB_solution(r, c);
+    matrix errors_matrix = get_errors_matrix(r, c, _analytical, _kmb);
+    vector max_error = get_max_error(errors_matrix, r, c);
+
+    matrix_to_file(_analytical, r, c, "kmb_analytical_data.txt");
+    matrix_to_file(_kmb, r, c, "kmb_computational_data.txt");
+    matrix_to_file(errors_matrix, r, c, "kmb_errors_matrix_data.txt");
+    vector_to_file(t_steps, r, "kmb_t_steps.txt", false);
+    vector_to_file(x_steps, r, "kmb_x_steps.txt", false);
+
+    task2_save_data(_kmb, _analytical, x_steps, c, 20, "kmb_zad2_1.txt", false);
+    task2_save_data(_kmb, _analytical, x_steps, c, int(c/3), "kmb_zad2_2.txt", false);
+    task2_save_data(_kmb, _analytical, x_steps, c, int(c/2), "kmb_zad2_3.txt", false);
+    //zad3
+    vector_to_file(t_steps,max_error, r, "kmb_zad3_err.txt", false);
 
 
-    matrix_to_file(_analytical, r, c, "kmb_analytical.txt");
-    matrix_to_file(_kmb, r, c, "kmb_computational.txt");
-    matrix_to_file(errors_matrix, r, c, "kmb_errors_matrix.txt");
+    //zad 1
+    int steps = 150;
+    int r1 = 0;
+    vector max_t_error = new double[steps];
+    vector x_steps_1 = new double[steps];
+    double h1 = 0.225;
 
-    vector_to_file(max_error, r, "kmb_max_error.txt");
-    vector_to_file(t_steps, r, "kmb_t_steps.txt");
-    vector_to_file(x_steps, r, "kmb_x_steps.txt");
+    for(int i=0;i<steps;i++){
+        max_t_error[i] = 0.0;
+    }
+    double x = h1;
+    matrix errors_matrix_1;
+    vector max_error_1;
 
+    for(int j=0;j<steps;j++) {
+        x_steps_1[j] = x;
+        const double delta_t = provide_delta_t(D, x, KMB_lambda);
+        r1 = ((t_max - t_min) / delta_t);
+        c = ((x_end - x_start) / x);
+
+        _analytical = provide_analytical_solution(x, delta_t, r1, c);
+        _kmb = provide_KMB_solution(r1, c);
+
+        errors_matrix_1 = get_errors_matrix(r1, c, _analytical, _kmb);
+        max_error_1 = get_max_error(errors_matrix_1, r1, c);
+
+        max_t_error[j] = max_error_1[r1-1];
+
+        x /= 1.009;
+    }
+    vector_to_file(x_steps_1,max_t_error, steps, "kmb_zad1_tmax_error.txt", true);
+
+
+
+    delete [] max_t_error;
+    delete [] max_error_1;
+    delete [] x_steps_1;
+    for(int i = 0; i < r1; i++)
+    {
+        delete[] errors_matrix_1[i];
+    }
 
     clear(_analytical, _kmb, max_error, errors_matrix, x_steps, t_steps, r);
+
 }
 
 matrix provide_KMB_solution(const int r, const int c)
@@ -289,34 +413,81 @@ matrix provide_KMB_solution(const int r, const int c)
 }
 
 
+
 //============================================================Laasonen_Thomas method======================================//
+
 void Laasonen_Thomas()
 {
-    const double delta_t = provide_delta_t(D,h,LAASONEN_lambda);
-    const int r = ((t_max - t_min) / delta_t) + 2;
-    const int c = ((x_end - x_start) / h);
+    //zad 2
 
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _laasonen_thomas = provide_Laasonen_Thomas(r, c);
-
-    matrix errors_matrix = get_errors_matrix(r ,c ,_analytical ,_laasonen_thomas);
-    vector max_error = get_max_error(errors_matrix, r, c);
-
+    double delta_t = provide_delta_t(D, h, LAASONEN_lambda);
+    int r = ((t_max - t_min) / delta_t);
+    int c = ((x_end - x_start) / h);
     vector t_steps = get_t_steps(delta_t, r);
     vector x_steps = get_x_steps(c);
 
+    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
+    matrix _laasonen_thomas = provide_Laasonen_Thomas(r, c);
+    matrix errors_matrix = get_errors_matrix(r, c, _analytical, _laasonen_thomas);
+    vector max_error = get_max_error(errors_matrix, r, c);
 
-    matrix_to_file(_analytical, r, c, "LTh_analytical.txt");
-    matrix_to_file(_laasonen_thomas, r, c, "LTh_computational.txt");
-    matrix_to_file(errors_matrix, r, c, "LTh_errors_matrix.txt");
+    matrix_to_file(_analytical, r, c, "lth_analytical_data.txt");
+    matrix_to_file(_laasonen_thomas, r, c, "lth_computational_data.txt");
+    matrix_to_file(errors_matrix, r, c, "lth_errors_matrix_data.txt");
+    vector_to_file(t_steps, r, "lth_t_steps.txt", false);
+    vector_to_file(x_steps, r, "lth_x_steps.txt", false);
 
-    vector_to_file(max_error, r, "LTh_max_error.txt");
-    vector_to_file(t_steps, r, "LTh_t_steps.txt");
-    vector_to_file(x_steps, r, "LTh_x_steps.txt");
+    task2_save_data(_laasonen_thomas, _analytical, x_steps, c, 20, "lth_zad2_1.txt", false);
+    task2_save_data(_laasonen_thomas, _analytical, x_steps, c, int(c/3), "lth_zad2_2.txt", false);
+    task2_save_data(_laasonen_thomas, _analytical, x_steps, c, int(c/2), "lth_zad2_3.txt", false);
+    //zad3
+    vector_to_file(t_steps,max_error, r, "lth_zad3_err.txt", false);
 
+
+    //zad 1
+    int steps = 150;
+    int r1 = 0;
+    vector max_t_error = new double[steps];
+    vector x_steps_1 = new double[steps];
+    double h1 = 0.225;
+
+    for(int i=0;i<steps;i++){
+        max_t_error[i] = 0.0;
+    }
+    double x = h1;
+    matrix errors_matrix_1;
+    vector max_error_1;
+
+    for(int j=0;j<steps;j++) {
+        x_steps_1[j] = x;
+        delta_t = provide_delta_t(D, x, LAASONEN_lambda);
+        r1 = ((t_max - t_min) / delta_t);
+        c = ((x_end - x_start) / x);
+
+        _analytical = provide_analytical_solution(x, delta_t, r1, c);
+        _laasonen_thomas = provide_KMB_solution(r1, c);
+
+        errors_matrix_1 = get_errors_matrix(r1, c, _analytical, _laasonen_thomas);
+        max_error_1 = get_max_error(errors_matrix_1, r1, c);
+
+        max_t_error[j] = max_error_1[r1-1];
+
+        x /= 1.009;
+    }
+    vector_to_file(x_steps_1,max_t_error, steps, "lth_zad1_tmax_error.txt", true);
+
+
+
+    delete [] max_t_error;
+    delete [] max_error_1;
+    delete [] x_steps_1;
+    for(int i = 0; i < r1; i++)
+    {
+        delete[] errors_matrix_1[i];
+    }
 
     clear(_analytical, _laasonen_thomas, max_error, errors_matrix, x_steps, t_steps, r);
-};
+}
 
 matrix provide_Laasonen_Thomas(const int r, const int c)
 {
@@ -402,42 +573,93 @@ void compute_x(vector Diagonal, vector Upper, vector b, vector x, const int c)
 //=======================================================Laasonen - SOR method===========================================//
 void Laasonen_SOR()
 {
-    //PDF str.75
 
-    const double delta_t = provide_delta_t(D,h,LAASONEN_lambda);
-    const int r = ((t_max - t_min) / delta_t) + 2;
-    const int c = r;//((x_end - x_start) / h);
-    const double omega = 2.0;
+    //zad 2
 
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _laasonen_sor = provide_Laasonen_SOR(r, c);
-
-    matrix errors_matrix = get_errors_matrix(r ,c ,_analytical ,_laasonen_sor);
-    vector max_error = get_max_error(errors_matrix, r, c);
-
+    double delta_t = provide_delta_t(D, h, LAASONEN_lambda);
+    int r = ((t_max - t_min) / delta_t);
+    int c = r ;// ((x_end - x_start) / h);
     vector t_steps = get_t_steps(delta_t, r);
     vector x_steps = get_x_steps(c);
 
+    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
+    matrix _laasonen_sor = provide_Laasonen_SOR(r, c);
+    matrix errors_matrix = get_errors_matrix(r, c, _analytical, _laasonen_sor);
+    vector max_error = get_max_error(errors_matrix, r, c);
 
-    matrix_to_file(_analytical, r, c, "LSOR_analytical.txt");
-    matrix_to_file(_laasonen_sor, r, c, "LSOR_computational.txt");
-    matrix_to_file(errors_matrix, r, c, "LSOR_errors_matrix.txt");
+    matrix_to_file(_analytical, r, c, "lsor_analytical_data.txt");
+    matrix_to_file(_laasonen_sor, r, c, "lsor_computational_data.txt");
+    matrix_to_file(errors_matrix, r, c, "lsor_errors_matrix_data.txt");
+    vector_to_file(t_steps, r, "lsor_t_steps.txt", false);
+    vector_to_file(x_steps, r, "lsor_x_steps.txt", false);
 
-    vector_to_file(max_error, r, "LSOR_max_error.txt");
-    vector_to_file(t_steps, r, "LSOR_t_steps.txt");
-    vector_to_file(x_steps, r, "LSOR_x_steps.txt");
+    task2_save_data(_laasonen_sor, _analytical, x_steps, c, 20, "lsor_zad2_1.txt", false);
+    task2_save_data(_laasonen_sor, _analytical, x_steps, c, int(c/3), "lsor_zad2_2.txt", false);
+    task2_save_data(_laasonen_sor, _analytical, x_steps, c, int(c/2), "lsor_zad2_3.txt", false);
+    //zad3
+    vector_to_file(t_steps,max_error, r, "lsor_zad3_err.txt", false);
 
 
-    clear(_analytical, _laasonen_sor, max_error, errors_matrix, x_steps, t_steps, r);
+    //zad 1
+    int steps = 130;
+    int r1 = 0;
+    vector max_t_error = new double[steps];
+    vector x_steps_1 = new double[steps];
+    double h1 = 0.35;
+
+    for(int i=0;i<steps;i++){
+        max_t_error[i] = 0.0;
+    }
+    double x = h1;
+    matrix errors_matrix_1;
+    vector max_error_1;
+
+    for(int j=0;j<steps;j++) {
+        x_steps_1[j] = x;
+        delta_t = provide_delta_t(D, x, LAASONEN_lambda);
+        r1 = ((t_max - t_min) / delta_t);
+        c = r1;//((x_end - x_start) / x);
+        cout<<"j "<<j<<endl;
+        _analytical = provide_analytical_solution(x, delta_t, r1, c);
+        _laasonen_sor = provide_Laasonen_SOR(r1, c);
+
+        errors_matrix_1 = get_errors_matrix(r1, c, _analytical, _laasonen_sor);
+        max_error_1 = get_max_error(errors_matrix_1, r1, c);
+
+        max_t_error[j] = max_error_1[r1-1];
+
+        x /= 1.009;
+    }
+    vector_to_file(x_steps_1,max_t_error, steps, "lsor_zad1_tmax_error.txt", false);
+
+
+
+    delete [] max_t_error;
+    delete [] max_error_1;
+    delete [] x_steps_1;
+    for(int i = 0; i < r1; i++)
+    {
+        delete[] errors_matrix_1[i];
+    }
+
+    clear(_analytical, _laasonen_sor, max_error, errors_matrix, x_steps, t_steps, r1);
+
 }
 
 matrix provide_Laasonen_SOR(const int r,const int c)
 {
+
+
     const double _lambda = 1.0 + 2.0 * LAASONEN_lambda;//PDF str.136 macierz trójdiagonalna
     matrix _matrix_A = init_matrix_conditions(r, c);
 
     vector vector_b = new double[c];
     vector vector_x = new double[c];
+    matrix matrix_temp = new vector[c];
+    for (int i = 0; i < c; i++) {
+        matrix_temp[i] = new double[c];
+    }
+
     for(int i = 0; i < c; i++)
     {
         vector_b[i] = 0.0;
@@ -446,28 +668,23 @@ matrix provide_Laasonen_SOR(const int r,const int c)
 
     for (int k = 1; k < r; k++) {
 
-        _matrix_A[1][0] = 0.0;//Lower[0]  = 0.0;
-        _matrix_A[0][0] = 1.0;//Diagonal[0] = 1.0;
-        _matrix_A[0][1] = 0.0;//Upper[0] = 0.0;
+        matrix_temp[0][0] = 1.0;//Diagonal[0] = 1.0;
         vector_b[0] = _matrix_A[k-1][0];
 
         for (int i = 1; i < c - 1; i++) {
-            _matrix_A[i+1][i] = LAASONEN_lambda;// Lower[i]    = LAASONEN_lambda;
-            _matrix_A[i][i] = -_lambda;//Diagonal[i] = -_lambda;
-            _matrix_A[i-1][i] = LAASONEN_lambda;//Upper[i]    = LAASONEN_lambda;
+            matrix_temp[i+1][i] = LAASONEN_lambda;// Lower[i]    = LAASONEN_lambda;
+            matrix_temp[i][i] = -_lambda;//Diagonal[i] = -_lambda;
+            matrix_temp[i-1][i] = LAASONEN_lambda;//Upper[i]    = LAASONEN_lambda;
             vector_b[i] = -_matrix_A[k - 1][i];
         }
 
-        _matrix_A[1][c-1] = 0.0;//Lower[c-1] = 0.0
-        _matrix_A[r-1][c-1] = 1.0;//Diagonal[c - 1] = 1.0;
-        _matrix_A[r-2][c-1] = 0.0;//Upper[c - 1] = 0.0;
-
-        vector_b[c - 1] = _matrix_A[k - 1][c - 1];
+        matrix_temp[r-1][c-1] = 1.0;//Diagonal[c - 1] = 1.0;
+        vector_b[c - 1] = 0.0;
 
 
-        SOR( _matrix_A, vector_b, vector_x, r, c);
+        SOR( matrix_temp, vector_b, vector_x, r, c);
 
-        for (int i = 1; i < c; i++) {
+        for (int i = 1; i < c-1; i++) {
             _matrix_A[k][i] = vector_x[i];
         }
     }
@@ -477,66 +694,69 @@ matrix provide_Laasonen_SOR(const int r,const int c)
 
 void SOR(matrix  matrix_A, vector b, vector x, const int r, int const c)
 {
-    vector x_plus_1 = new double[c];
+
+    double TOL = 1e-16;
+    double *xnplus1 = new double[c];
+
     for( int i = 0; i < c; i++)
-    {
-        x_plus_1[i] = 0.0;
-    }
+   {
+       xnplus1[i] = 0.0;
+   }
 
-    double sum = 0;
-    for(int k=0; k<SOR_ITER; k++) {
-        for (int i = 0; i < r; i++) {
-            sum = 0;
-            for(int j=0; j<c; j++)
+    double suma;
+    double OMEGA = 0.5;
+
+    for (int iter = 0; iter < 40; iter++)
+    {
+        for (int i = 1; i < c; i++)
+        {
+            suma = 0.0;
+            for (int j = 1; j < c; j++)
             {
-                if(i != j)
-                {
-                    sum = sum + matrix_A[i][j] * x[j];
-                }
+                    if (i != j) {
+                        suma += (matrix_A[i][j] * x[j]);
+                    }
             }
-            x_plus_1[i] = (1.0  - omega) * x[i] + (omega / matrix_A[i][i]) * (b[i] - sum);
+            xnplus1[i]  = (1.0 - OMEGA) * x[i] + ((OMEGA * (b[i] - suma)) / matrix_A[i][i]);
+            x[i] = xnplus1[i];
         }
 
-        bool est = estym(x, x_plus_1, c);
-        bool res = residuum(matrix_A, b, x, r, c);
-        if ( est && res )
-            break;
-        swapVect(x_plus_1, x, c);
+        if ((fabs((norm_max(residuum(matrix_A, b, x, c), c))) < TOL) &&
+            (fabs((estymator(xnplus1, x, c))) < TOL))
+                break;
     }
 }
 
-bool estym(double *x, double *x1, const int c)
-{
-    int counter = 0;
-    for (int i = 0; i < c; i++) {
-        if (fabs(x1[i] - x[i]) < 1e-16)
-            counter++;
+double estymator(vector xNowe, vector xPoprzednie, int m) {
+    double max = 0.0;
+    double *p = new double[m];
+
+    for (int i = 0; i < m; i++)
+        p[i] = xNowe[i] - xPoprzednie[i];
+
+    if (fabs(p[0]) > fabs(p[1]))
+        max = fabs(p[0]);
+    else
+        max = fabs(p[1]);
+
+    for (int i = 0; i < m; i++) {
+        if (fabs(p[i]) > max)
+            max = fabs(p[i]);
     }
-    return counter == c;
+
+    delete[] p;
+    return max;
 }
 
-bool residuum(double **matrix, double *b, double *x, const int r, const int c)
-{
-    int counter = 0;
+vector residuum(matrix macierz, vector b, vector x, int c) {
+    double sum = 0.0;
+    double *wynik = new double[c];
     for (int i = 0; i < c; i++) {
-        double temp = 0;
-        for (int j = 0; j < r; j++) {
-            temp += matrix[i][j] * x[j];
+        for (int j = 0; j < c; j++) {
+            sum += macierz[i][j] * x[j];
         }
-
-        if (fabs(temp - b[i]) < 1e-16)
-            counter++;
+        wynik[i] = sum - b[i];
+        sum = 0.0;
     }
-    return counter == c;
-}
-
-void swapVect(double *x1, double *x, const int c)
-{
-    double tmp = 0;
-    for(int i=0;i<c; i++)
-    {
-        tmp = x1[i];
-        x1[i] = x[i];
-        x[i] = tmp;
-    }
+    return wynik;
 }
