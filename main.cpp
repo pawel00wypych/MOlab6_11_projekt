@@ -18,22 +18,22 @@ const double a = 6.0 * sqrt(D * t_max);
 
 const double x_start = -a;
 const double x_end = a;
-const double h = 0.1;
+const double H = 0.1;
 typedef double** matrix;
 typedef double* vector;
 
 //====================================================================functions==========================================//
 void KMB();
-matrix provide_KMB_solution(const int r, const int c);
+matrix provide_KMB_solution(const int r, const int c, double h);
 
 void Laasonen_SOR();
-matrix provide_Laasonen_SOR(const int r,const int c);
+matrix provide_Laasonen_SOR(const int r,const int c,double h);
 void SOR(matrix matrixA, vector b, vector x, const int r, int const c);
 vector residuum(double **macierz, double *b, double *x, int m);
 double estymator(double *xNowe, double *xPoprzednie, int m);
 
 void Laasonen_Thomas();
-matrix provide_Laasonen_Thomas(const int r, const int c);
+matrix provide_Laasonen_Thomas(const int r, const int c, double h);
 void Thomas(vector Lower, vector Diagonal, vector Upper, vector b, vector x, const int c);
 void compute_eta(vector Lower, vector Diagonal, vector Upper, vector l, const int c);
 void compute_r(vector b, vector l, const int c);
@@ -42,7 +42,7 @@ void compute_x(vector Diagonal, vector Upper, vector b, vector x, const int c);
 
 double provide_delta_t(const double D, const double h, const double lambda);
 matrix provide_analytical_solution(const double h, const double delta_t, const int r, const int c);
-matrix init_matrix_conditions(const int r, const int c);
+matrix init_matrix_conditions(const int r, const int c, double h);
 matrix get_errors_matrix(const int r, const int c,matrix analytical, matrix computational);
 vector get_max_error(matrix errors, const int r, const int c);
 double norm_max(vector row, int c);
@@ -148,7 +148,7 @@ matrix provide_analytical_solution(const double h, const double delta_t, const i
     return _matrix;
 }
 
-matrix init_matrix_conditions(const int r, const int c)
+matrix init_matrix_conditions(const int r, const int c, double h)
 {
     matrix _matrix = new vector[r];
     for(int i = 0; i < r; i++)
@@ -326,14 +326,14 @@ void KMB()
 {
     //zad 2
 
-    double delta_t = provide_delta_t(D, h, KMB_lambda);
+    double delta_t = provide_delta_t(D, H, KMB_lambda);
     int r = ((t_max - t_min) / delta_t);
-    int c = ((x_end - x_start) / h);
+    int c = ((x_end - x_start) / H);
     vector t_steps = get_t_steps(delta_t, r);
     vector x_steps = get_x_steps(c);
 
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _kmb = provide_KMB_solution(r, c);
+    matrix _analytical = provide_analytical_solution(H, delta_t, r, c);
+    matrix _kmb = provide_KMB_solution(r, c, H);
     matrix errors_matrix = get_errors_matrix(r, c, _analytical, _kmb);
     vector max_error = get_max_error(errors_matrix, r, c);
 
@@ -371,7 +371,7 @@ void KMB()
         c = ((x_end - x_start) / x);
 
         _analytical = provide_analytical_solution(x, delta_t, r1, c);
-        _kmb = provide_KMB_solution(r1, c);
+        _kmb = provide_KMB_solution(r1, c, x);
 
         errors_matrix_1 = get_errors_matrix(r1, c, _analytical, _kmb);
         max_error_1 = get_max_error(errors_matrix_1, r1, c);
@@ -396,9 +396,9 @@ void KMB()
 
 }
 
-matrix provide_KMB_solution(const int r, const int c)
+matrix provide_KMB_solution(const int r, const int c, double h)
 {
-    matrix _matrix = init_matrix_conditions(r, c);//inicjalizujemy macierz z warunkami początkowymi oraz brzegowymi
+    matrix _matrix = init_matrix_conditions(r, c, h);//inicjalizujemy macierz z warunkami początkowymi oraz brzegowymi
 
     for(int k = 1; k < r; k++)
     {
@@ -420,14 +420,14 @@ void Laasonen_Thomas()
 {
     //zad 2
 
-    double delta_t = provide_delta_t(D, h, LAASONEN_lambda);
+    double delta_t = provide_delta_t(D, H, LAASONEN_lambda);
     int r = ((t_max - t_min) / delta_t);
-    int c = ((x_end - x_start) / h);
+    int c = ((x_end - x_start) / H);
     vector t_steps = get_t_steps(delta_t, r);
     vector x_steps = get_x_steps(c);
 
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _laasonen_thomas = provide_Laasonen_Thomas(r, c);
+    matrix _analytical = provide_analytical_solution(H, delta_t, r, c);
+    matrix _laasonen_thomas = provide_Laasonen_Thomas(r, c, H);
     matrix errors_matrix = get_errors_matrix(r, c, _analytical, _laasonen_thomas);
     vector max_error = get_max_error(errors_matrix, r, c);
 
@@ -465,7 +465,7 @@ void Laasonen_Thomas()
         c = ((x_end - x_start) / x);
 
         _analytical = provide_analytical_solution(x, delta_t, r1, c);
-        _laasonen_thomas = provide_KMB_solution(r1, c);
+        _laasonen_thomas = provide_Laasonen_Thomas(r1, c,x);
 
         errors_matrix_1 = get_errors_matrix(r1, c, _analytical, _laasonen_thomas);
         max_error_1 = get_max_error(errors_matrix_1, r1, c);
@@ -489,10 +489,10 @@ void Laasonen_Thomas()
     clear(_analytical, _laasonen_thomas, max_error, errors_matrix, x_steps, t_steps, r);
 }
 
-matrix provide_Laasonen_Thomas(const int r, const int c)
+matrix provide_Laasonen_Thomas(const int r, const int c, double h)
 {
     const double _lambda = 1.0 + 2.0 * LAASONEN_lambda;//PDF str.136 macierz trójdiagonalna
-    matrix _matrix_A = init_matrix_conditions(r, c);
+    matrix _matrix_A = init_matrix_conditions(r, c, h);
 
     vector Lower    = new double[c];
     vector Diagonal = new double[c];
@@ -576,14 +576,14 @@ void Laasonen_SOR()
 
     //zad 2
 
-    double delta_t = provide_delta_t(D, h, LAASONEN_lambda);
+    double delta_t = provide_delta_t(D, H, LAASONEN_lambda);
     int r = ((t_max - t_min) / delta_t);
     int c = r ;// ((x_end - x_start) / h);
     vector t_steps = get_t_steps(delta_t, r);
     vector x_steps = get_x_steps(c);
 
-    matrix _analytical = provide_analytical_solution(h, delta_t, r, c);
-    matrix _laasonen_sor = provide_Laasonen_SOR(r, c);
+    matrix _analytical = provide_analytical_solution(H, delta_t, r, c);
+    matrix _laasonen_sor = provide_Laasonen_SOR(r, c, H);
     matrix errors_matrix = get_errors_matrix(r, c, _analytical, _laasonen_sor);
     vector max_error = get_max_error(errors_matrix, r, c);
 
@@ -621,7 +621,7 @@ void Laasonen_SOR()
         c = r1;//((x_end - x_start) / x);
         cout<<"j "<<j<<endl;
         _analytical = provide_analytical_solution(x, delta_t, r1, c);
-        _laasonen_sor = provide_Laasonen_SOR(r1, c);
+        _laasonen_sor = provide_Laasonen_SOR(r1, c, x);
 
         errors_matrix_1 = get_errors_matrix(r1, c, _analytical, _laasonen_sor);
         max_error_1 = get_max_error(errors_matrix_1, r1, c);
@@ -646,12 +646,12 @@ void Laasonen_SOR()
 
 }
 
-matrix provide_Laasonen_SOR(const int r,const int c)
+matrix provide_Laasonen_SOR(const int r,const int c, double h)
 {
 
 
     const double _lambda = 1.0 + 2.0 * LAASONEN_lambda;//PDF str.136 macierz trójdiagonalna
-    matrix _matrix_A = init_matrix_conditions(r, c);
+    matrix _matrix_A = init_matrix_conditions(r, c, h);
 
     vector vector_b = new double[c];
     vector vector_x = new double[c];
